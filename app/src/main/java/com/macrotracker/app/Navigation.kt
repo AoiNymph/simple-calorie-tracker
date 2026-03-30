@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -84,15 +85,29 @@ fun HomeScreen(viewModel: MacroViewModel) {
         Text("Today's Macros", style = MaterialTheme.typography.headlineLarge)
         Spacer(modifier = Modifier.height(16.dp))
         
+        // Calorie Card with Progress Bar
         Card(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
+                val calRatio = if (todayLog.calorieGoal > 0) todayLog.caloriesConsumed.toFloat() / todayLog.calorieGoal.toFloat() else 0f
                 Text("Calories: ${todayLog.caloriesConsumed} / ${todayLog.calorieGoal} kcal", style = MaterialTheme.typography.titleMedium)
+                LinearProgressIndicator(
+                    progress = calRatio.coerceAtMost(1f), 
+                    color = getProgressColor(calRatio),
+                    modifier = Modifier.fillMaxWidth().height(12.dp).padding(top = 8.dp)
+                )
             }
         }
 
+        // Protein Card with Progress Bar
         Card(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
+                val proRatio = if (todayLog.proteinGoal > 0) todayLog.proteinConsumed.toFloat() / todayLog.proteinGoal.toFloat() else 0f
                 Text("Protein: ${todayLog.proteinConsumed} / ${todayLog.proteinGoal} g", style = MaterialTheme.typography.titleMedium)
+                LinearProgressIndicator(
+                    progress = proRatio.coerceAtMost(1f), 
+                    color = getProgressColor(proRatio),
+                    modifier = Modifier.fillMaxWidth().height(12.dp).padding(top = 8.dp)
+                )
             }
         }
 
@@ -103,7 +118,6 @@ fun HomeScreen(viewModel: MacroViewModel) {
         Divider(modifier = Modifier.padding(vertical = 8.dp))
         Text("Today's Entries", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
 
-        // NEW: Scrollable list of individual food entries with Delete buttons
         LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
             items(todayEntries) { entry ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -160,13 +174,16 @@ fun ChartsScreen(viewModel: MacroViewModel) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(log.date, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(12.dp))
-                            val calProgress = if (log.calorieGoal > 0) (log.caloriesConsumed.toFloat() / log.calorieGoal.toFloat()).coerceAtMost(1f) else 0f
+                            
+                            val calRatio = if (log.calorieGoal > 0) log.caloriesConsumed.toFloat() / log.calorieGoal.toFloat() else 0f
                             Text("Calories: ${log.caloriesConsumed} / ${log.calorieGoal} kcal", style = MaterialTheme.typography.bodyMedium)
-                            LinearProgressIndicator(progress = calProgress, modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = 4.dp))
+                            LinearProgressIndicator(progress = calRatio.coerceAtMost(1f), color = getProgressColor(calRatio), modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = 4.dp))
+                            
                             Spacer(modifier = Modifier.height(12.dp))
-                            val proProgress = if (log.proteinGoal > 0) (log.proteinConsumed.toFloat() / log.proteinGoal.toFloat()).coerceAtMost(1f) else 0f
+                            
+                            val proRatio = if (log.proteinGoal > 0) log.proteinConsumed.toFloat() / log.proteinGoal.toFloat() else 0f
                             Text("Protein: ${log.proteinConsumed} / ${log.proteinGoal} g", style = MaterialTheme.typography.bodyMedium)
-                            LinearProgressIndicator(progress = proProgress, modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = 4.dp))
+                            LinearProgressIndicator(progress = proRatio.coerceAtMost(1f), color = getProgressColor(proRatio), modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = 4.dp))
                         }
                     }
                 }
@@ -181,28 +198,18 @@ fun SettingsScreen(viewModel: MacroViewModel) {
     val context = LocalContext.current 
     val isDarkMode by viewModel.isDarkMode.collectAsState()
 
-    // 1 = Monday, 7 = Sunday
     var selectedDay by remember { mutableStateOf(LocalDate.now().dayOfWeek.value) }
     val daysOfWeek = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
     var expanded by remember { mutableStateOf(false) }
 
-    // Load goals for the selected day whenever it changes
     var calorieGoalInput by remember(selectedDay) { mutableStateOf(viewModel.settings.getCalorieGoal(selectedDay).toString()) }
     var proteinGoalInput by remember(selectedDay) { mutableStateOf(viewModel.settings.getProteinGoal(selectedDay).toString()) }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("App Settings", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(bottom = 24.dp))
 
-        // Dark Mode Toggle
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Dark Mode", style = MaterialTheme.typography.titleMedium)
                 Switch(checked = isDarkMode, onCheckedChange = { viewModel.setDarkMode(it) })
             }
@@ -211,31 +218,21 @@ fun SettingsScreen(viewModel: MacroViewModel) {
         Divider(modifier = Modifier.padding(bottom = 24.dp))
         Text("Daily Goals", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 16.dp))
 
-        // Dropdown to select day
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
             OutlinedTextField(
                 value = daysOfWeek[selectedDay - 1],
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Select Day") },
+                onValueChange = {}, readOnly = true, label = { Text("Select Day") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier.menuAnchor().fillMaxWidth()
             )
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 daysOfWeek.forEachIndexed { index, day ->
-                    DropdownMenuItem(
-                        text = { Text(day) },
-                        onClick = {
-                            selectedDay = index + 1
-                            expanded = false
-                        }
-                    )
+                    DropdownMenuItem(text = { Text(day) }, onClick = { selectedDay = index + 1; expanded = false })
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
         OutlinedTextField(value = calorieGoalInput, onValueChange = { calorieGoalInput = it }, label = { Text("Calorie Goal (kcal)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(value = proteinGoalInput, onValueChange = { proteinGoalInput = it }, label = { Text("Protein Goal (g)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
@@ -246,16 +243,23 @@ fun SettingsScreen(viewModel: MacroViewModel) {
                 val newCals = calorieGoalInput.toIntOrNull() ?: 2000
                 val newPro = proteinGoalInput.toIntOrNull() ?: 150
                 viewModel.settings.setGoals(selectedDay, newCals, newPro)
-                
-                // If they updated TODAY'S goal, reflect it immediately on the home screen
-                if (selectedDay == LocalDate.now().dayOfWeek.value) {
-                    viewModel.updateTodayGoals(newCals, newPro)
-                }
+                if (selectedDay == LocalDate.now().dayOfWeek.value) viewModel.updateTodayGoals(newCals, newPro)
                 Toast.makeText(context, "Saved for ${daysOfWeek[selectedDay - 1]}!", Toast.LENGTH_SHORT).show()
             },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Save Daily Goals")
         }
+    }
+}
+
+// NEW: The logic that determines the color of the progress bar based on your requested percentages
+@Composable
+fun getProgressColor(progress: Float): Color {
+    return when {
+        progress <= 0.50f -> Color(0xFF4CAF50) // Green
+        progress <= 0.70f -> Color(0xFFFFEB3B) // Yellow
+        progress <= 0.85f -> Color(0xFFFF9800) // Orange
+        else -> Color(0xFFF44336) // Red
     }
 }
