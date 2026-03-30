@@ -2,6 +2,8 @@ package com.macrotracker.app
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
@@ -12,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -44,7 +47,7 @@ fun AppNavigation() {
 fun BottomNavigationBar(navController: NavHostController) {
     val items = listOf("home", "charts", "settings")
     val icons = listOf(Icons.Default.Home, Icons.Default.DateRange, Icons.Default.Settings)
-    val labels = listOf("Main", "Charts", "Settings")
+    val labels = listOf("Main", "History", "Settings")
 
     NavigationBar {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -67,22 +70,78 @@ fun BottomNavigationBar(navController: NavHostController) {
     }
 }
 
+// NEW: The actual Charts/History Screen
 @Composable
-fun ChartsScreen() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Charts & Calendar Coming Soon!", style = MaterialTheme.typography.headlineMedium)
+fun ChartsScreen(viewModel: MacroViewModel = viewModel()) {
+    // Grab the list of all past and present logs
+    val allLogs by viewModel.allLogs.collectAsState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Macro History",
+            style = MaterialTheme.typography.headlineLarge,
+            modifier = Modifier.padding(bottom = 24.dp, top = 16.dp)
+        )
+
+        if (allLogs.isEmpty()) {
+            Text("No data yet. Go track some food on the Main page!", modifier = Modifier.padding(top = 32.dp))
+        } else {
+            // LazyColumn is a scrolling list that only renders what's on screen
+            LazyColumn {
+                items(allLogs) { log ->
+                    HistoryCard(log = log)
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
     }
 }
 
-// NEW FUNCTION: The actual Settings Screen
+// NEW: The design for a single day's card in the list
+@Composable
+fun HistoryCard(log: com.macrotracker.app.data.DailyLog) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = log.date, 
+                style = MaterialTheme.typography.titleLarge, 
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Math to ensure the progress bar doesn't crash if the goal is somehow 0, and caps at 100% (1.0f)
+            val calProgress = if (log.calorieGoal > 0) (log.caloriesConsumed.toFloat() / log.calorieGoal.toFloat()).coerceAtMost(1f) else 0f
+            Text(text = "Calories: ${log.caloriesConsumed} / ${log.calorieGoal} kcal", style = MaterialTheme.typography.bodyMedium)
+            LinearProgressIndicator(
+                progress = calProgress, 
+                modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = 4.dp)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            val proProgress = if (log.proteinGoal > 0) (log.proteinConsumed.toFloat() / log.proteinGoal.toFloat()).coerceAtMost(1f) else 0f
+            Text(text = "Protein: ${log.proteinConsumed} / ${log.proteinGoal} g", style = MaterialTheme.typography.bodyMedium)
+            LinearProgressIndicator(
+                progress = proProgress, 
+                modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = 4.dp)
+            )
+        }
+    }
+}
+
 @Composable
 fun SettingsScreen(viewModel: MacroViewModel = viewModel()) {
-    // 1. Get the current data so we know what to show in the text boxes initially
     val todayLog by viewModel.todayLog.collectAsState()
-    val context = LocalContext.current // Used to show a little "Saved!" toast message
+    val context = LocalContext.current 
     
-    // 2. State variables for what the user is typing
-    // We use "remember(todayLog.calorieGoal)" so it updates if the database changes
     var calorieGoalInput by remember(todayLog.calorieGoal) { mutableStateOf(todayLog.calorieGoal.toString()) }
     var proteinGoalInput by remember(todayLog.proteinGoal) { mutableStateOf(todayLog.proteinGoal.toString()) }
 
@@ -121,14 +180,9 @@ fun SettingsScreen(viewModel: MacroViewModel = viewModel()) {
 
         Button(
             onClick = {
-                // Convert text to numbers, falling back to current goals if they type gibberish
                 val newCals = calorieGoalInput.toIntOrNull() ?: todayLog.calorieGoal
                 val newPro = proteinGoalInput.toIntOrNull() ?: todayLog.proteinGoal
-                
-                // Tell the ViewModel to save it
                 viewModel.updateGoals(newCals, newPro)
-                
-                // Show a little popup message confirming the save
                 Toast.makeText(context, "Goals Updated!", Toast.LENGTH_SHORT).show()
             },
             modifier = Modifier.fillMaxWidth()

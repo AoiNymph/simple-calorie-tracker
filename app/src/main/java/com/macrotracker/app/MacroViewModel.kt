@@ -22,8 +22,13 @@ class MacroViewModel(application: Application) : AndroidViewModel(application) {
     private val _todayLog = MutableStateFlow(DailyLog(date = todayStr))
     val todayLog: StateFlow<DailyLog> = _todayLog.asStateFlow()
 
+    // NEW: A flow to hold the entire history of logs
+    private val _allLogs = MutableStateFlow<List<DailyLog>>(emptyList())
+    val allLogs: StateFlow<List<DailyLog>> = _allLogs.asStateFlow()
+
     init {
         loadTodayLog()
+        loadAllLogs() // NEW: Tell it to load the history when the app starts
     }
 
     private fun loadTodayLog() {
@@ -40,6 +45,15 @@ class MacroViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // NEW: Fetch all logs from the database, sorted by date (handled by our DAO query earlier)
+    private fun loadAllLogs() {
+        viewModelScope.launch {
+            dao.getAllLogs().collect { logs ->
+                _allLogs.value = logs
+            }
+        }
+    }
+
     fun addMacros(calories: Int, protein: Int) {
         viewModelScope.launch {
             val currentLog = _todayLog.value
@@ -51,7 +65,6 @@ class MacroViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // NEW FUNCTION: Updates the daily goals and saves them to the database
     fun updateGoals(newCalorieGoal: Int, newProteinGoal: Int) {
         viewModelScope.launch {
             val currentLog = _todayLog.value
