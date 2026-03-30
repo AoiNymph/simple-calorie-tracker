@@ -21,11 +21,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # Sets up standard Gradle on the server instead of needing gradlew
+      # We now explicitly tell GitHub to use Gradle 8.7
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
 
-      # Builds the app using the standard gradle command
       - name: Build App
         run: gradle assembleDebug
 
