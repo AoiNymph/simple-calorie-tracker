@@ -23,19 +23,18 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MacroTrackerApp()
+                    // Start the app by loading the Navigation system!
+                    AppNavigation()
                 }
             }
         }
     }
 }
 
+// We renamed this from MacroTrackerApp to HomeScreen
 @Composable
-fun MacroTrackerApp(viewModel: MacroViewModel = viewModel()) {
-    // 1. Observe the database state. When the database changes, the UI updates automatically!
+fun HomeScreen(viewModel: MacroViewModel = viewModel()) {
     val todayLog by viewModel.todayLog.collectAsState()
-    
-    // 2. State to control whether our "Add Food" popup is visible
     var showDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -52,7 +51,6 @@ fun MacroTrackerApp(viewModel: MacroViewModel = viewModel()) {
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Calories Card (Now dynamic!)
         Card(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -65,7 +63,6 @@ fun MacroTrackerApp(viewModel: MacroViewModel = viewModel()) {
             }
         }
 
-        // Protein Card (Now dynamic!)
         Card(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -88,9 +85,7 @@ fun MacroTrackerApp(viewModel: MacroViewModel = viewModel()) {
         }
     }
 
-    // 3. The Popup Dialog for entering food
     if (showDialog) {
-        // Variables to temporarily hold what you are typing
         var caloriesInput by remember { mutableStateOf("") }
         var proteinInput by remember { mutableStateOf("") }
 
@@ -119,12 +114,9 @@ fun MacroTrackerApp(viewModel: MacroViewModel = viewModel()) {
             confirmButton = {
                 Button(
                     onClick = {
-                        // Convert text to numbers (or 0 if left blank), then send to ViewModel
                         val cals = caloriesInput.toIntOrNull() ?: 0
                         val pro = proteinInput.toIntOrNull() ?: 0
                         viewModel.addMacros(cals, pro)
-                        
-                        // Close the popup
                         showDialog = false
                     }
                 ) {
