@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [DailyLog::class], version = 1, exportSchema = false)
+@Database(entities = [DailyLog::class, FoodEntry::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dailyLogDao(): DailyLogDao
 
@@ -19,7 +19,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "macro_tracker_database"
-                ).build()
+                )
+                .fallbackToDestructiveMigration() // Wipes old V1 test data safely
+                .build()
                 INSTANCE = instance
                 instance
             }

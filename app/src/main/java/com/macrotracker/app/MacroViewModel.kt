@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.macrotracker.app.data.AppDatabase
 import com.macrotracker.app.data.DailyLog
+import com.macrotracker.app.data.FoodEntry
+import com.macrotracker.app.data.SettingsManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,20 +17,31 @@ import java.time.format.DateTimeFormatter
 class MacroViewModel(application: Application) : AndroidViewModel(application) {
     
     private val dao = AppDatabase.getDatabase(application).dailyLogDao()
+    val settings = SettingsManager(application) 
 
+    private val todayDate = LocalDate.now()
     private val todayStr: String
-        get() = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        get() = todayDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+    private val currentDayOfWeek: Int
+        get() = todayDate.dayOfWeek.value 
 
     private val _todayLog = MutableStateFlow(DailyLog(date = todayStr))
     val todayLog: StateFlow<DailyLog> = _todayLog.asStateFlow()
 
-    // NEW: A flow to hold the entire history of logs
     private val _allLogs = MutableStateFlow<List<DailyLog>>(emptyList())
     val allLogs: StateFlow<List<DailyLog>> = _allLogs.asStateFlow()
 
+    private val _todayEntries = MutableStateFlow<List<FoodEntry>>(emptyList())
+    val todayEntries: StateFlow<List<FoodEntry>> = _todayEntries.asStateFlow()
+
+    // NEW: Dark mode state
+    private val _isDarkMode = MutableStateFlow(settings.isDarkMode())
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+
     init {
         loadTodayLog()
-        loadAllLogs() // NEW: Tell it to load the history when the app starts
+        loadAllLogs()
+        loadTodayEntries()
     }
 
     private fun loadTodayLog() {
@@ -37,7 +50,11 @@ class MacroViewModel(application: Application) : AndroidViewModel(application) {
                 if (log != null) {
                     _todayLog.value = log 
                 } else {
-                    val newLog = DailyLog(date = todayStr)
+                    val newLog = DailyLog(
+                        date = todayStr,
+                        calorieGoal = settings.getCalorieGoal(currentDayOfWeek),
+                        proteinGoal = settings.getProteinGoal(currentDayOfWeek)
+                    )
                     dao.insertOrUpdateLog(newLog)
                     _todayLog.value = newLog
                 }
@@ -45,34 +62,47 @@ class MacroViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // NEW: Fetch all logs from the database, sorted by date (handled by our DAO query earlier)
     private fun loadAllLogs() {
-        viewModelScope.launch {
-            dao.getAllLogs().collect { logs ->
-                _allLogs.value = logs
-            }
-        }
+        viewModelScope.launch { dao.getAllLogs().collect { _allLogs.value = it } }
+    }
+
+    private fun loadTodayEntries() {
+        viewModelScope.launch { dao.getFoodEntriesForDate(todayStr).collect { _todayEntries.value = it } }
     }
 
     fun addMacros(calories: Int, protein: Int) {
         viewModelScope.launch {
+            val entry = FoodEntry(date = todayStr, calories = calories, protein = protein)
+            dao.insertFoodEntry(entry)
+
             val currentLog = _todayLog.value
-            val updatedLog = currentLog.copy(
+            dao.insertOrUpdateLog(currentLog.copy(
                 caloriesConsumed = currentLog.caloriesConsumed + calories,
                 proteinConsumed = currentLog.proteinConsumed + protein
-            )
-            dao.insertOrUpdateLog(updatedLog)
+            ))
         }
     }
 
-    fun updateGoals(newCalorieGoal: Int, newProteinGoal: Int) {
+    fun deleteEntry(entry: FoodEntry) {
         viewModelScope.launch {
+            dao.deleteFoodEntry(entry)
             val currentLog = _todayLog.value
-            val updatedLog = currentLog.copy(
-                calorieGoal = newCalorieGoal,
-                proteinGoal = newProteinGoal
-            )
-            dao.insertOrUpdateLog(updatedLog)
+            dao.insertOrUpdateLog(currentLog.copy(
+                caloriesConsumed = currentLog.caloriesConsumed - entry.calories,
+                proteinConsumed = currentLog.proteinConsumed - entry.protein
+            ))
         }
+    }
+
+    fun updateTodayGoals(newCalorieGoal: Int, newProteinGoal: Int) {
+        viewModelScope.launch {
+            dao.insertOrUpdateLog(_todayLog.value.copy(calorieGoal = newCalorieGoal, proteinGoal = newProteinGoal))
+        }
+    }
+
+    // NEW: Toggle Dark Mode
+    fun setDarkMode(isDark: Boolean) {
+        settings.setDarkMode(isDark)
+        _isDarkMode.value = isDark
     }
 }
