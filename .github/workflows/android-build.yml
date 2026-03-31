@@ -21,11 +21,16 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Cache Debug Keystore
+      - name: Cache Master Signature
+        id: signature-cache
         uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
-          key: android-debug-keystore
+          path: macro-tracker.keystore
+          key: macro-tracker-master-key-v1
+
+      - name: Forge Permanent Key
+        if: steps.signature-cache.outputs.cache-hit != 'true'
+        run: keytool -genkey -v -keystore macro-tracker.keystore -storepass password123 -alias macrokey -keypass password123 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=CalorieTracker, O=SoloDev, C=US"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
