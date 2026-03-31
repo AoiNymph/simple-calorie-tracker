@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.macrotracker.app.data.AppDatabase
 import com.macrotracker.app.data.DailyLog
+import com.macrotracker.app.data.DaySettings
 import com.macrotracker.app.data.FoodEntry
 import com.macrotracker.app.data.SettingsManager
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,11 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-data class BackupData(val logs: List<DailyLog>, val entries: List<FoodEntry>)
+data class BackupData(
+    val logs: List<DailyLog>, 
+    val entries: List<FoodEntry>,
+    val settings: List<DaySettings>? = null
+)
 
 class MacroViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -105,7 +110,11 @@ class MacroViewModel(application: Application) : AndroidViewModel(application) {
     fun exportData(context: Context, uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val backup = BackupData(dao.getAllLogsSync(), dao.getAllEntriesSync())
+                val backup = BackupData(
+                    logs = dao.getAllLogsSync(), 
+                    entries = dao.getAllEntriesSync(),
+                    settings = settings.getAllSettings()
+                )
                 val jsonString = Gson().toJson(backup)
                 context.contentResolver.openOutputStream(uri)?.use { it.write(jsonString.toByteArray()) }
                 launch(Dispatchers.Main) { Toast.makeText(context, "Export Successful!", Toast.LENGTH_SHORT).show() }
@@ -122,11 +131,19 @@ class MacroViewModel(application: Application) : AndroidViewModel(application) {
                     val jsonString = inputStream.bufferedReader().readText()
                     val backup = Gson().fromJson(jsonString, BackupData::class.java)
                     
+                    if (backup.settings != null) {
+                        settings.restoreSettings(backup.settings)
+                    }
+
                     dao.wipeEntries()
                     dao.wipeLogs()
                     dao.insertAllLogs(backup.logs)
                     dao.insertAllEntries(backup.entries)
                     
+                    val restoredCalGoal = settings.getCalorieGoal(currentDayOfWeek)
+                    val restoredProGoal = settings.getProteinGoal(currentDayOfWeek)
+                    updateTodayGoals(restoredCalGoal, restoredProGoal)
+
                     launch(Dispatchers.Main) { Toast.makeText(context, "Import Successful!", Toast.LENGTH_SHORT).show() }
                 }
             } catch (e: Exception) {
