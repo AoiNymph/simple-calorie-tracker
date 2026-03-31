@@ -18,7 +18,6 @@ interface DailyLogDao {
     @Query("SELECT * FROM daily_logs ORDER BY date DESC")
     fun getAllLogs(): Flow<List<DailyLog>>
 
-    // NEW: Food Entry Commands
     @Insert
     suspend fun insertFoodEntry(entry: FoodEntry)
 
@@ -27,4 +26,25 @@ interface DailyLogDao {
 
     @Query("SELECT * FROM food_entries WHERE date = :date ORDER BY timeAdded DESC")
     fun getFoodEntriesForDate(date: String): Flow<List<FoodEntry>>
+
+    @Query("SELECT * FROM daily_logs")
+    suspend fun getAllLogsSync(): List<DailyLog>
+
+    @Query("SELECT * FROM food_entries")
+    suspend fun getAllEntriesSync(): List<FoodEntry>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllLogs(logs: List<DailyLog>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllEntries(entries: List<FoodEntry>)
+
+    @Query("DELETE FROM daily_logs")
+    suspend fun wipeLogs()
+
+    @Query("DELETE FROM food_entries")
+    suspend fun wipeEntries()
+
+    @Query("SELECT * FROM food_entries WHERE date = :date ORDER BY timeAdded ASC")
+    suspend fun getEntriesForDateSync(date: String): List<FoodEntry>
 }

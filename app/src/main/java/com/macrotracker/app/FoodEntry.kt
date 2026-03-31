@@ -6,8 +6,9 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "food_entries")
 data class FoodEntry(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val date: String, // Which day this belongs to
+    val date: String,
     val calories: Int,
     val protein: Int,
-    val timeAdded: Long = System.currentTimeMillis() // To sort them by when you ate them
+    val name: String = "",
+    val timeAdded: Long = System.currentTimeMillis()
 )
